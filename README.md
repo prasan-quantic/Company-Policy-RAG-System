@@ -41,7 +41,7 @@ User Query → Embedding (all-MiniLM-L6-v2) → Vector Search (ChromaDB)
 
 1. **Clone the repository**
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/prasan-quantic/Company-Policy-RAG-System
 cd AI
 ```
 
@@ -365,4 +365,5 @@ For questions about this project, please refer to the course materials or contac
 ---
 
 **Built with ❤️ for Quantic's AI Engineering Course**
+
 
