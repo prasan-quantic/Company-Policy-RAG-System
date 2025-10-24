@@ -1,0 +1,54 @@
+{
+  "total_docs": 8,
+  "total_chunks": 31,
+  "documents": [
+    {
+      "file": "code_of_conduct.md",
+      "title": "Code of Conduct and Ethics Policy",
+      "doc_id": " POL-008",
+      "chunks": 6
+    },
+    {
+      "file": "employee_benefits.md",
+      "title": "Employee Benefits Policy",
+      "doc_id": " POL-007",
+      "chunks": 4
+    },
+    {
+      "file": "expense_reimbursement.md",
+      "title": "Expense Reimbursement Policy",
+      "doc_id": " POL-003",
+      "chunks": 3
+    },
+    {
+      "file": "holiday_policy.md",
+      "title": "Holiday Policy",
+      "doc_id": " POL-005",
+      "chunks": 5
+    },
+    {
+      "file": "performance_management.md",
+      "title": "Performance Management Policy",
+      "doc_id": " POL-008",
+      "chunks": 8
+    },
+    {
+      "file": "pto_policy.md",
+      "title": "",
+      "doc_id": "PTO_POLICY",
+      "chunks": 0
+    },
+    {
+      "file": "remote_work_policy.md",
+      "title": "Remote Work Policy",
+      "doc_id": " POL-002",
+      "chunks": 2
+    },
+    {
+      "file": "security_policy.md",
+      "title": "Information Security Policy",
+      "doc_id": " POL-004",
+      "chunks": 3
+    }
+  ]
+}

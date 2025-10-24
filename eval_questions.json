@@ -1,0 +1,153 @@
+[
+  {
+    "question": "How many days of PTO do I get?",
+    "category": "PTO",
+    "expected_contains": ["15", "years of service"]
+  },
+  {
+    "question": "Can I work remotely?",
+    "category": "Remote Work",
+    "expected_contains": ["eligible", "hybrid"]
+  },
+  {
+    "question": "What is the daily meal limit when traveling?",
+    "category": "Expenses",
+    "expected_contains": ["$85", "breakfast", "lunch", "dinner"]
+  },
+  {
+    "question": "What holidays does the company observe?",
+    "category": "Holidays",
+    "expected_contains": ["11", "New Year", "Christmas", "Thanksgiving"]
+  },
+  {
+    "question": "What are the password requirements?",
+    "category": "Security",
+    "expected_contains": ["12 characters", "uppercase", "lowercase", "numbers", "special characters"]
+  },
+  {
+    "question": "How long is maternity leave?",
+    "category": "Benefits",
+    "expected_contains": ["12 weeks", "100% salary"]
+  },
+  {
+    "question": "What is the company 401k match?",
+    "category": "Benefits",
+    "expected_contains": ["4%", "match"]
+  },
+  {
+    "question": "Can I get reimbursed for my gym membership?",
+    "category": "Benefits",
+    "expected_contains": ["$50", "month", "fitness"]
+  },
+  {
+    "question": "What should I do if my laptop is stolen?",
+    "category": "Security",
+    "expected_contains": ["report", "IT", "Security"]
+  },
+  {
+    "question": "How often are performance reviews?",
+    "category": "Performance",
+    "expected_contains": ["annual", "mid-year", "quarterly"]
+  },
+  {
+    "question": "Can I carry over unused PTO to next year?",
+    "category": "PTO",
+    "expected_contains": ["40 hours", "5 days", "carryover"]
+  },
+  {
+    "question": "What is the remote work equipment policy?",
+    "category": "Remote Work",
+    "expected_contains": ["laptop", "monitor", "company provides"]
+  },
+  {
+    "question": "How do I submit expense reports?",
+    "category": "Expenses",
+    "expected_contains": ["Expensify", "30 days", "receipts"]
+  },
+  {
+    "question": "What is the tuition reimbursement policy?",
+    "category": "Benefits",
+    "expected_contains": ["$5,250", "year", "grade"]
+  },
+  {
+    "question": "Do I need MFA for company systems?",
+    "category": "Security",
+    "expected_contains": ["required", "multi-factor", "authenticator"]
+  },
+  {
+    "question": "What are the core business hours for remote workers?",
+    "category": "Remote Work",
+    "expected_contains": ["10:00 AM", "3:00 PM", "core hours"]
+  },
+  {
+    "question": "Can I expense alcohol?",
+    "category": "Expenses",
+    "expected_contains": ["client entertainment", "manager approval"]
+  },
+  {
+    "question": "What are floating holidays?",
+    "category": "Holidays",
+    "expected_contains": ["2 days", "religious", "cultural"]
+  },
+  {
+    "question": "What is the sexual harassment reporting procedure?",
+    "category": "Code of Conduct",
+    "expected_contains": ["HR", "ethics hotline", "report"]
+  },
+  {
+    "question": "How do I report a security incident?",
+    "category": "Security",
+    "expected_contains": ["security@company.com", "5911", "immediately"]
+  },
+  {
+    "question": "What happens if I don't meet performance expectations?",
+    "category": "Performance",
+    "expected_contains": ["Performance Improvement Plan", "PIP", "60-90 days"]
+  },
+  {
+    "question": "Can I use personal devices for work?",
+    "category": "Security",
+    "expected_contains": ["BYOD", "MDM", "approval"]
+  },
+  {
+    "question": "What is the hotel reimbursement limit in New York?",
+    "category": "Expenses",
+    "expected_contains": ["$300", "night"]
+  },
+  {
+    "question": "How long is paternity leave?",
+    "category": "Benefits",
+    "expected_contains": ["6 weeks", "100%"]
+  },
+  {
+    "question": "What medical insurance plans are available?",
+    "category": "Benefits",
+    "expected_contains": ["PPO", "HDHP", "deductible"]
+  },
+  {
+    "question": "Can I work from another country?",
+    "category": "Remote Work",
+    "expected_contains": ["international", "approval", "legal", "60-90 days"]
+  },
+  {
+    "question": "What is the referral bonus?",
+    "category": "Benefits",
+    "expected_contains": ["$2,500", "90 days", "1 year"]
+  },
+  {
+    "question": "How do I get promoted?",
+    "category": "Performance",
+    "expected_contains": ["performing at next level", "6-12 months", "business need"]
+  },
+  {
+    "question": "What is the clean desk policy?",
+    "category": "Security",
+    "expected_contains": ["confidential documents", "unattended", "secure"]
+  },
+  {
+    "question": "What happens to PTO when I leave the company?",
+    "category": "PTO",
+    "expected_contains": ["payout", "80 hours", "2 weeks notice"]
+  }
+]
+
