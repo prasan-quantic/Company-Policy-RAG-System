@@ -1,4 +1,4 @@
-web: gunicorn -w 4 -b 0.0.0.0:$PORT app:app --timeout 120
+web: gunicorn -w 2 -b 0.0.0.0:$PORT app:app --timeout 120
 name: CI/CD Pipeline
 
 on:
@@ -86,4 +86,3 @@ jobs:
           echo "❌ Health check failed with status $response"
           exit 1
         fi
-
