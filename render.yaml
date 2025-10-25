@@ -6,6 +6,9 @@ services:
     plan: free
     buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python ingest.py
     startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app --timeout 120
+    # IMPORTANT: Do NOT manually set PORT in envVars below
+    # Render automatically sets PORT=10000 for web services
+    # Manual PORT override causes deployment failures
     envVars:
       - key: FLASK_ENV
         value: production
