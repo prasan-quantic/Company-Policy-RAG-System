@@ -5,7 +5,7 @@ services:
     region: oregon
     plan: free
     buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python ingest.py
-    startCommand: gunicorn -w 4 -b 0.0.0.0:$PORT app:app
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app --timeout 120
     envVars:
       - key: FLASK_ENV
         value: production
@@ -22,3 +22,4 @@ services:
       - key: TOP_K
         value: 5
     healthCheckPath: /health
+
