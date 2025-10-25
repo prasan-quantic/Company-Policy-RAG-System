@@ -165,19 +165,3 @@ def not_found(e):
 def internal_error(e):
     """Handle 500 errors."""
     return jsonify({'error': 'Internal server error'}), 500
-
-
-if __name__ == '__main__':
-    # Run development server
-    port = int(os.getenv('PORT', 10000))
-    debug = os.getenv('FLASK_ENV') == 'development'
-
-    print("\n" + "="*60)
-    print("🚀 Starting Company Policy RAG System")
-    print("="*60)
-    print(f"Server: http://localhost:{port}")
-    print(f"Health Check: http://localhost:{port}/health")
-    print(f"API Endpoint: http://localhost:{port}/chat")
-    print("="*60 + "\n")
-
-    app.run(host='0.0.0.0', port=port, debug=debug)
