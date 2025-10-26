@@ -308,15 +308,34 @@
                     body: JSON.stringify({ question: question })
                 });
 
-                const data = await response.json();
+                // Check if response has content before parsing JSON
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    throw new Error('Server returned non-JSON response');
+                }
+
+                const text = await response.text();
+                if (!text) {
+                    throw new Error('Server returned empty response');
+                }
+
+                const data = JSON.parse(text);
 
                 if (response.ok) {
                     addMessage('assistant', data.answer, data.sources, data.latency_ms);
+                } else if (response.status === 503 && data.ready === false) {
+                    // System is warming up
+                    addMessage('assistant', '⏳ System is warming up. Please wait a moment and try again...', null, null);
+                    // Retry after 3 seconds
+                    setTimeout(() => {
+                        askQuestion(question);
+                    }, 3000);
                 } else {
                     addMessage('assistant', `Error: ${data.error || 'Something went wrong'}`, null, null);
                 }
             } catch (error) {
-                addMessage('assistant', `Error: Unable to connect to the server. ${error.message}`, null, null);
+                console.error('Request error:', error);
+                addMessage('assistant', `Error: Unable to connect to the server. Please check your connection and try again.`, null, null);
             } finally {
                 // Re-enable input
                 sendButton.disabled = false;
@@ -373,4 +392,3 @@
     </script>
 </body>
 </html>
-
