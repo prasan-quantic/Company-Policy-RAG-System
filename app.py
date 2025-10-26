@@ -116,14 +116,18 @@ def chat():
         start_time = time.time()
 
         # Get RAG pipeline
+        print(f"🔍 Initializing RAG pipeline for question: {question[:50]}...")
         rag = get_rag_pipeline()
+        print(f"✅ RAG pipeline initialized")
 
         # Execute query
+        print(f"🔎 Executing query...")
         result = rag.query(
             question=question,
             top_k=top_k,
             use_rerank=use_rerank
         )
+        print(f"✅ Query executed successfully")
 
         # Calculate latency
         latency_ms = int((time.time() - start_time) * 1000)
@@ -132,9 +136,14 @@ def chat():
         return jsonify(result), 200
 
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"❌ ERROR in /chat endpoint:")
+        print(error_trace)
         return jsonify({
             'error': 'Internal server error',
-            'message': str(e)
+            'message': str(e),
+            'type': type(e).__name__
         }), 500
 
 
