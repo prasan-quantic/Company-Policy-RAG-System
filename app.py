@@ -19,28 +19,35 @@ from rag import RAGPipeline
 
 app = Flask(__name__)
 
-# Initialize RAG pipeline at module load time (synchronous)
-# This ensures it's loaded before gunicorn workers start with --preload
-print("🔄 Initializing RAG pipeline at module load...")
-try:
-    rag_pipeline = RAGPipeline(
-        db_path=os.getenv("CHROMA_DB_PATH", "chroma_db"),
-        embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-        llm_provider=os.getenv("LLM_PROVIDER", "openrouter"),
-        model_name=os.getenv("MODEL_NAME", "google/gemini-flash-1.5-8b"),
-        top_k=int(os.getenv("TOP_K", "5"))
-    )
-    # Force load embedding model NOW during module initialization
-    print("⏳ Loading embedding model...")
-    _ = rag_pipeline._load_embedding_model()
-    print("✅ RAG pipeline initialized and ready!")
-    preload_complete = True
-except Exception as e:
-    print(f"❌ Failed to initialize RAG pipeline: {e}")
-    import traceback
-    traceback.print_exc()
-    rag_pipeline = None
-    preload_complete = False
+# Global variable to hold RAG pipeline
+rag_pipeline = None
+preload_complete = False
+initialization_error = None
+
+def initialize_rag():
+    """Initialize RAG pipeline without loading heavy models."""
+    global rag_pipeline, preload_complete, initialization_error
+
+    try:
+        print("🔄 Initializing RAG pipeline (lightweight)...")
+        rag_pipeline = RAGPipeline(
+            db_path=os.getenv("CHROMA_DB_PATH", "chroma_db"),
+            embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+            llm_provider=os.getenv("LLM_PROVIDER", "openrouter"),
+            model_name=os.getenv("MODEL_NAME", "google/gemini-flash-1.5-8b"),
+            top_k=int(os.getenv("TOP_K", "5"))
+        )
+        preload_complete = True
+        print("✅ RAG pipeline initialized successfully!")
+    except Exception as e:
+        initialization_error = str(e)
+        print(f"❌ Failed to initialize RAG pipeline: {e}")
+        import traceback
+        traceback.print_exc()
+        preload_complete = False
+
+# Initialize on module load
+initialize_rag()
 
 def get_rag_pipeline():
     """Get RAG pipeline instance."""

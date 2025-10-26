@@ -8,11 +8,13 @@ from typing import List, Dict, Any, Optional
 
 # Disable ChromaDB telemetry to prevent production errors
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
 
 # Force ONNX to use CPU only to prevent GPU warnings
 os.environ["ORT_DEVICE"] = "CPU"
 
 import chromadb
+from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 from dotenv import load_dotenv
@@ -46,33 +48,25 @@ class RAGPipeline:
         self.embedding_model_name = embedding_model
         self.embedding_model = None
 
-        # Initialize ChromaDB with new API
-        self.client = chromadb.PersistentClient(path=db_path)
+        # Initialize ChromaDB with telemetry disabled
+        self.client = chromadb.PersistentClient(
+            path=db_path,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
+        )
 
         try:
             self.collection = self.client.get_collection(name="company_policies")
             print(f"✅ Loaded existing collection with {self.collection.count()} chunks")
         except Exception as e:
-            # Collection doesn't exist - create it and re-ingest
-            print(f"⚠️  Collection not found: {e}")
-            print(f"🔄 Creating new collection and re-ingesting documents...")
-            try:
-                from ingest import DocumentIngestion
-                ingestion = DocumentIngestion(
-                    docs_path="documents",
-                    db_path=db_path,
-                    embedding_model=embedding_model,
-                    chunk_size=500,
-                    chunk_overlap=50
-                )
-                stats = ingestion.ingest_documents()
-                print(f"✅ Ingestion complete: {stats['total_chunks']} chunks indexed")
-
-                # Now get the collection
-                self.collection = self.client.get_collection(name="company_policies")
-                print(f"✅ Collection loaded with {self.collection.count()} chunks")
-            except Exception as ingest_error:
-                raise Exception(f"Failed to create and ingest collection: {ingest_error}")
+            # Collection doesn't exist - DO NOT auto-ingest (causes worker timeout)
+            # Instead, raise a clear error message
+            raise Exception(
+                f"Collection 'company_policies' does not exist. "
+                f"Please run 'python ingest.py' to create it before starting the app. Error: {e}"
+            )
 
         # Initialize LLM client
         self._init_llm_client()

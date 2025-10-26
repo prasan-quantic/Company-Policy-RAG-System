@@ -9,11 +9,14 @@ from pathlib import Path
 
 # Disable ChromaDB telemetry to prevent production errors
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
 
 # Force ONNX to use CPU only to prevent GPU warnings
 os.environ["ORT_DEVICE"] = "CPU"
 
 import chromadb
+from chromadb.config import Settings
+
 
 def check_and_initialize_db():
     """Check if ChromaDB collection exists, create if not."""
@@ -21,7 +24,13 @@ def check_and_initialize_db():
 
     try:
         print("🔍 Checking vector database...")
-        client = chromadb.PersistentClient(path=db_path)
+        client = chromadb.PersistentClient(
+            path=db_path,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
+        )
 
         try:
             collection = client.get_collection(name="company_policies")
@@ -40,6 +49,7 @@ def check_and_initialize_db():
         print(f"❌ Error checking database: {e}")
         return False
 
+
 def initialize_database():
     """Initialize vector database with documents."""
     print("🔄 Initializing vector database...")
@@ -50,14 +60,15 @@ def initialize_database():
         print("❌ Documents directory not found!")
         return False
 
-    # Check if there are any documents
+    # Check if there are documents
     doc_files = list(docs_path.glob("*.md")) + list(docs_path.glob("*.txt"))
     if not doc_files:
         print("❌ No documents found in documents directory!")
         return False
 
-    print(f"📁 Found {len(doc_files)} documents to process")
+    print(f"📄 Found {len(doc_files)} documents")
 
+    # Run ingestion
     try:
         from ingest import DocumentIngestion
 
@@ -72,40 +83,55 @@ def initialize_database():
         stats = ingestion.ingest_documents()
 
         if stats['total_chunks'] > 0:
-            print(f"✅ Database initialized successfully!")
-            print(f"📊 Processed {stats['total_docs']} documents")
-            print(f"🔢 Created {stats['total_chunks']} chunks")
+            print(f"✅ Database initialized with {stats['total_chunks']} chunks")
             return True
         else:
-            print("❌ No chunks were created during ingestion")
+            print("❌ No chunks were created")
             return False
 
     except Exception as e:
-        print(f"❌ Error during database initialization: {e}")
+        print(f"❌ Error initializing database: {e}")
         import traceback
         traceback.print_exc()
         return False
 
+
 def main():
-    """Main startup routine."""
-    print("🚀 Starting Company Policy RAG System...")
+    """Main startup function."""
+    print("="*60)
+    print("Starting Company Policy RAG System")
     print("="*60)
 
-    # Check if database is ready
-    if check_and_initialize_db():
-        print("✅ System ready to start!")
-        return True
+    # Check if database exists and is ready
+    if not check_and_initialize_db():
+        print("\n🔧 Database not ready, initializing...")
+        if not initialize_database():
+            print("\n❌ Failed to initialize database!")
+            print("Please ensure documents are in the 'documents' directory")
+            sys.exit(1)
 
-    # Try to initialize database
-    print("\n🔧 Database initialization required...")
-    if initialize_database():
-        print("✅ System ready to start!")
-        return True
-    else:
-        print("❌ Failed to initialize database!")
-        print("💡 Please check that documents are in the 'documents' directory")
-        return False
+    print("\n✅ Startup checks complete!")
+    print("="*60)
+
+    # Start gunicorn
+    import subprocess
+    port = os.environ.get('PORT', '10000')
+
+    cmd = [
+        'gunicorn',
+        'app:app',
+        '--bind', f'0.0.0.0:{port}',
+        '--timeout', '300',
+        '--workers', '1',
+        '--worker-class', 'sync',
+        '--max-requests', '100',
+        '--max-requests-jitter', '10',
+        '--preload'
+    ]
+
+    print(f"🚀 Starting gunicorn on port {port}...")
+    subprocess.run(cmd)
+
 
 if __name__ == "__main__":
-    success = main()
-    sys.exit(0 if success else 1)
+    main()

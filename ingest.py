@@ -11,11 +11,13 @@ from typing import List, Dict, Any
 
 # Disable ChromaDB telemetry to prevent production errors
 os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["CHROMA_TELEMETRY"] = "False"
 
 # Force ONNX to use CPU only to prevent GPU warnings
 os.environ["ORT_DEVICE"] = "CPU"
 
 import chromadb
+from chromadb.config import Settings
 from sentence_transformers import SentenceTransformer
 import markdown
 from bs4 import BeautifulSoup
@@ -48,18 +50,17 @@ class DocumentIngestion:
         print(f"Loading embedding model: {embedding_model}")
         self.embedding_model = SentenceTransformer(embedding_model)
 
-        # Initialize ChromaDB with new API
-        self.client = chromadb.PersistentClient(path=db_path)
+        # Initialize ChromaDB with telemetry disabled
+        self.client = chromadb.PersistentClient(
+            path=db_path,
+            settings=Settings(
+                anonymized_telemetry=False,
+                allow_reset=True
+            )
+        )
 
-        # Delete existing collection if it exists
-        try:
-            self.client.delete_collection(name="company_policies")
-            print("Deleted existing collection")
-        except:
-            pass
-
-        # Create new collection
-        self.collection = self.client.create_collection(
+        # Get or create collection
+        self.collection = self.client.get_or_create_collection(
             name="company_policies",
             metadata={"description": "Company policy documents"}
         )
