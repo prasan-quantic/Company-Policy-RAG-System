@@ -1,149 +1,172 @@
-# Deployment Fix - JSON Parsing Error
+# Deployment Fix - Worker Timeout Error
 
 ## Problem Analysis
 
-The production error "Failed to execute 'json' on 'Response': Unexpected end of JSON input" was caused by:
-
-1. **Worker Timeout** - Gunicorn workers were timing out (30s default) while loading the heavy sentence-transformers embedding model
-2. **Worker Killed** - Workers were sent SIGKILL due to timeout, interrupting requests mid-flight
-3. **HEAD Requests** - Browser was making HEAD requests that returned 200 with empty body, causing JSON parsing errors
-4. **Memory Issues** - Free tier Render instance running out of memory during model loading
-
-## Root Cause
+The production error shows workers are timing out even with increased timeout:
 
 ```
-[2025-10-26 14:17:44 +0000] [38] [CRITICAL] WORKER TIMEOUT (pid:46)
-[2025-10-26 14:18:11 +0000] [38] [ERROR] Worker (pid:46) was sent SIGKILL! Perhaps out of memory?
+[2025-10-26 15:07:22 +0000] [56] [CRITICAL] WORKER TIMEOUT (pid:66)
+[2025-10-26 15:07:22 +0000] [66] [INFO] Worker exiting (pid: 66)
 ```
 
-The embedding model (sentence-transformers) was being loaded on first request, causing:
-- Worker timeout after 30 seconds
-- Incomplete HTTP responses
-- JSON parsing errors on frontend
+### Root Causes Identified
 
-## Solutions Implemented
+1. **Background Thread Preload Not Completing** - Background thread was non-blocking, so workers started before model loaded
+2. **Heavy Embedding Model** - `all-MiniLM-L6-v2` takes 30-90 seconds to load on free tier memory constraints
+3. **Sync Worker Class** - Synchronous workers block during model loading
+4. **First Request Timeout** - Worker timeout kills process before embedding model finishes loading
 
-### 1. Background Model Preloading (app.py)
+## Solutions Implemented v2
 
-Added background thread to preload the RAG pipeline and embedding model **before** handling any requests:
+### 1. Synchronous Module-Level Initialization (app.py)
+
+**Changed from:** Background thread preload (non-blocking)  
+**Changed to:** Module-level synchronous initialization
 
 ```python
-preload_complete = False
-
-def preload_rag_pipeline():
-    """Preload RAG pipeline in background to avoid first-request timeout."""
-    global rag_pipeline, preload_complete
-    # Load RAG pipeline
-    rag_pipeline = RAGPipeline(...)
-    # Force load embedding model now
-    _ = rag_pipeline._load_embedding_model()
-    preload_complete = True
+# Initialize RAG pipeline at module load time (synchronous)
+# This ensures it's loaded BEFORE gunicorn workers start
+print("🔄 Initializing RAG pipeline at module load...")
+rag_pipeline = RAGPipeline(...)
+# Force load embedding model NOW during module initialization
+_ = rag_pipeline._load_embedding_model()
+print("✅ RAG pipeline initialized and ready!")
 ```
 
-### 2. Increased Worker Timeout (render.yaml)
+**Why this works:**
 
-Changed gunicorn timeout from default 30s to 600s to allow model loading:
+- Runs during Python module import
+- Completes BEFORE Flask app starts accepting requests
+- No race condition between preload and first request
+
+### 2. Use gthread Worker Class (render.yaml)
+
+**Changed from:** `sync` worker with `--preload`  
+**Changed to:** `gthread` worker with 2 threads
 
 ```yaml
-startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 600 --workers 1 --worker-class sync --max-requests 100 --max-requests-jitter 10 --preload
+startCommand: gunicorn app:app --timeout 300 --workers 1 --threads 2 --worker-class gthread
 ```
 
-### 3. HEAD Request Handling (app.py)
+**Benefits:**
 
-Fixed HEAD requests to return proper empty responses without trying to render JSON:
+- Threads share memory (single model instance)
+- Better for I/O-bound operations (API calls to LLM)
+- Lower memory footprint than multiple workers
 
-```python
-@app.route('/health', methods=['GET', 'HEAD'])
-def health():
-    if request.method == 'HEAD':
-        return '', 200
-    # ... JSON response for GET
+### 3. Memory Optimizations (render.yaml)
+
+Added environment variables to reduce memory usage:
+
+```yaml
+- key: TOKENIZERS_PARALLELISM
+  value: "false"
+- key: ORT_DEVICE
+  value: CPU
+- key: ANONYMIZED_TELEMETRY
+  value: "False"
 ```
 
-### 4. Warming-Up State (app.py)
+### 4. Reduced Timeout to 300s (render.yaml)
 
-Added status endpoint and warming state to inform users system is loading:
+Since model loads at module import (not per-request), we can use shorter timeout:
 
-```python
-@app.route('/status', methods=['GET'])
-def status():
-    return jsonify({
-        'ready': preload_complete,
-        'message': 'System ready' if preload_complete else 'Loading models...'
-    })
+```yaml
+--timeout 300
 ```
 
-### 5. Frontend Error Handling (index.html)
+### 5. Frontend Robust Error Handling (index.html)
 
-Improved frontend to properly handle:
-- Empty responses
-- Non-JSON responses  
-- 503 warming-up state with auto-retry
+Already implemented:
 
-```javascript
-// Check content type before parsing
-const contentType = response.headers.get('content-type');
-if (!contentType || !contentType.includes('application/json')) {
-    throw new Error('Server returned non-JSON response');
-}
+- ✅ Validates response content-type
+- ✅ Checks for empty responses
+- ✅ Auto-retries on 503 warming state
+- ✅ Clear error messages
 
-// Check for empty response
-const text = await response.text();
-if (!text) {
-    throw new Error('Server returned empty response');
-}
+## Expected Behavior
 
-// Now safely parse JSON
-const data = JSON.parse(text);
-
-// Handle warming state
-if (response.status === 503 && data.ready === false) {
-    // Auto-retry after 3 seconds
-    setTimeout(() => askQuestion(question), 3000);
-}
-```
-
-## Benefits
-
-1. ✅ **No more worker timeouts** - Model preloads in background
-2. ✅ **No JSON parsing errors** - Proper response validation
-3. ✅ **Better UX** - Users see warming state instead of cryptic errors
-4. ✅ **Faster responses** - Model already loaded when first request comes
-5. ✅ **Memory efficient** - Single worker with preloading
-
-## Testing
-
-After deployment, check:
-
-1. `/health` endpoint returns warming state initially, then healthy
-2. `/status` endpoint shows ready=true after preload
-3. First chat request doesn't timeout
-4. No worker SIGKILL messages in logs
-
-## Expected Startup Sequence
+### Startup Sequence
 
 ```
 ==> Running 'gunicorn app:app'
+🔄 Initializing RAG pipeline at module load...
+✅ Loaded existing collection with 123 chunks
+⏳ Loading embedding model...
+✅ Embedding model loaded on cpu
+✅ RAG pipeline initialized and ready!
 [INFO] Starting gunicorn 21.2.0
 [INFO] Listening at: http://0.0.0.0:10000
+[INFO] Using worker: gthread
 [INFO] Booting worker with pid: 46
-🔄 Preloading RAG pipeline in background...
-✅ Loaded existing collection with 123 chunks
-⏳ Loading embedding model: all-MiniLM-L6-v2
-✅ Embedding model loaded on cpu
-✅ RAG pipeline preloaded successfully
+==> Detected service running on port 10000
 ==> Your service is live 🎉
 ```
 
+### First Request
+
+```
+127.0.0.1 - - [26/Oct/2025:15:30:00 +0000] "POST /chat HTTP/1.1" 200 512
+✅ Query executed successfully
+```
+
+**NO worker timeout!** Model is already loaded.
+
+## Testing Checklist
+
+After deployment:
+
+- [ ] Check logs show "RAG pipeline initialized and ready!" BEFORE worker starts
+- [ ] No "WORKER TIMEOUT" messages in logs
+- [ ] First `/chat` request completes successfully (< 10s response time)
+- [ ] `/health` endpoint returns `{"status": "healthy"}`
+- [ ] `/status` endpoint returns `{"ready": true}`
+- [ ] No JSON parsing errors on frontend
+
 ## Deployment
 
-Push changes to trigger redeployment:
-
 ```bash
-git add app.py render.yaml templates/index.html
-git commit -m "Fix: Worker timeout and JSON parsing errors in production"
+git add app.py render.yaml DEPLOYMENT_FIX_JSON_ERROR.md
+git commit -m "Fix: Synchronous model loading to prevent worker timeout"
 git push
 ```
 
-Monitor Render logs for successful startup with preload message.
+## Monitoring
 
+Watch for these success indicators in Render logs:
+
+✅ **Success Pattern:**
+
+```
+🔄 Initializing RAG pipeline at module load...
+✅ RAG pipeline initialized and ready!
+[INFO] Booting worker with pid: XX
+==> Your service is live 🎉
+```
+
+❌ **Failure Pattern (if still occurs):**
+
+```
+[CRITICAL] WORKER TIMEOUT (pid:XX)
+[ERROR] Worker (pid:XX) was sent SIGKILL!
+```
+
+## Fallback Plan (If Still Failing)
+
+If worker still times out, the embedding model is too heavy for free tier. Alternative solutions:
+
+1. **Use lighter model:** Change `EMBEDDING_MODEL` to `paraphrase-MiniLM-L3-v2` (even smaller)
+2. **Lazy load on first request:** Accept slower first request but return 503 during load
+3. **Use paid tier:** More memory/CPU for faster model loading
+4. **Pre-compute embeddings:** Store query embeddings in cache
+
+## Key Differences from Previous Fix
+
+| Aspect | Previous (Failed) | Current (Fixed) |
+|--------|------------------|-----------------|
+| Preload method | Background thread | Synchronous module-level |
+| Worker class | sync | gthread |
+| Timeout | 600s | 300s |
+| Threads | N/A | 2 threads |
+| When model loads | Async after app start | Before app accepts requests |
+| Memory optimization | Basic | + TOKENIZERS_PARALLELISM |

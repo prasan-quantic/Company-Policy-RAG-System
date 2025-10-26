@@ -5,61 +5,49 @@ Provides web interface and API endpoints for querying company policies.
 
 import os
 import time
-import threading
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from dotenv import load_dotenv
-from rag import RAGPipeline
 
-# Load environment variables
+# Load environment variables first
 load_dotenv()
+
+# Disable telemetry before importing anything else
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+os.environ["ORT_DEVICE"] = "CPU"
+
+from rag import RAGPipeline
 
 app = Flask(__name__)
 
-# Initialize RAG pipeline (loaded once at startup)
-rag_pipeline = None
-rag_lock = threading.Lock()
-preload_complete = False
-
-def preload_rag_pipeline():
-    """Preload RAG pipeline in background to avoid first-request timeout."""
-    global rag_pipeline, preload_complete
-    try:
-        print("🔄 Preloading RAG pipeline in background...")
-        with rag_lock:
-            if rag_pipeline is None:
-                rag_pipeline = RAGPipeline(
-                    db_path=os.getenv("CHROMA_DB_PATH", "chroma_db"),
-                    embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-                    llm_provider=os.getenv("LLM_PROVIDER", "openrouter"),
-                    model_name=os.getenv("MODEL_NAME", "google/gemini-flash-1.5-8b"),
-                    top_k=int(os.getenv("TOP_K", "5"))
-                )
-                # Force load embedding model now
-                _ = rag_pipeline._load_embedding_model()
-        preload_complete = True
-        print("✅ RAG pipeline preloaded successfully")
-    except Exception as e:
-        print(f"❌ Error preloading RAG pipeline: {e}")
-        import traceback
-        traceback.print_exc()
+# Initialize RAG pipeline at module load time (synchronous)
+# This ensures it's loaded before gunicorn workers start with --preload
+print("🔄 Initializing RAG pipeline at module load...")
+try:
+    rag_pipeline = RAGPipeline(
+        db_path=os.getenv("CHROMA_DB_PATH", "chroma_db"),
+        embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
+        llm_provider=os.getenv("LLM_PROVIDER", "openrouter"),
+        model_name=os.getenv("MODEL_NAME", "google/gemini-flash-1.5-8b"),
+        top_k=int(os.getenv("TOP_K", "5"))
+    )
+    # Force load embedding model NOW during module initialization
+    print("⏳ Loading embedding model...")
+    _ = rag_pipeline._load_embedding_model()
+    print("✅ RAG pipeline initialized and ready!")
+    preload_complete = True
+except Exception as e:
+    print(f"❌ Failed to initialize RAG pipeline: {e}")
+    import traceback
+    traceback.print_exc()
+    rag_pipeline = None
+    preload_complete = False
 
 def get_rag_pipeline():
     """Get RAG pipeline instance."""
     global rag_pipeline
-    with rag_lock:
-        if rag_pipeline is None:
-            rag_pipeline = RAGPipeline(
-                db_path=os.getenv("CHROMA_DB_PATH", "chroma_db"),
-                embedding_model=os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2"),
-                llm_provider=os.getenv("LLM_PROVIDER", "openrouter"),
-                model_name=os.getenv("MODEL_NAME", "google/gemini-flash-1.5-8b"),
-                top_k=int(os.getenv("TOP_K", "5"))
-            )
+    if rag_pipeline is None:
+        raise Exception("RAG pipeline failed to initialize at startup")
     return rag_pipeline
-
-# Start preloading in background thread
-preload_thread = threading.Thread(target=preload_rag_pipeline, daemon=True)
-preload_thread.start()
 
 @app.route('/')
 def index():
