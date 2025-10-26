@@ -5,7 +5,7 @@ Provides web interface and API endpoints for querying company policies.
 
 import os
 import time
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, send_from_directory
 from dotenv import load_dotenv
 from rag import RAGPipeline
 
@@ -35,6 +35,20 @@ def get_rag_pipeline():
 def index():
     """Render main chat interface."""
     return render_template('index.html')
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon to prevent 404 errors."""
+    try:
+        return send_from_directory(
+            os.path.join(app.root_path, 'static'),
+            'favicon.ico',
+            mimetype='image/vnd.microsoft.icon'
+        )
+    except FileNotFoundError:
+        # Return empty response if favicon doesn't exist
+        return '', 204
 
 
 @app.route('/health', methods=['GET'])
