@@ -44,9 +44,28 @@ class RAGPipeline:
 
         try:
             self.collection = self.client.get_collection(name="company_policies")
-            print(f"✅ Loaded collection with {self.collection.count()} chunks")
+            print(f"✅ Loaded existing collection with {self.collection.count()} chunks")
         except Exception as e:
-            raise Exception(f"Could not load collection. Run ingest.py first. Error: {e}")
+            # Collection doesn't exist - create it and re-ingest
+            print(f"⚠️  Collection not found: {e}")
+            print(f"🔄 Creating new collection and re-ingesting documents...")
+            try:
+                from ingest import DocumentIngestion
+                ingestion = DocumentIngestion(
+                    docs_path="documents",
+                    db_path=db_path,
+                    embedding_model=embedding_model,
+                    chunk_size=500,
+                    chunk_overlap=50
+                )
+                stats = ingestion.ingest_documents()
+                print(f"✅ Ingestion complete: {stats['total_chunks']} chunks indexed")
+
+                # Now get the collection
+                self.collection = self.client.get_collection(name="company_policies")
+                print(f"✅ Collection loaded with {self.collection.count()} chunks")
+            except Exception as ingest_error:
+                raise Exception(f"Failed to create and ingest collection: {ingest_error}")
 
         # Initialize LLM client
         self._init_llm_client()
