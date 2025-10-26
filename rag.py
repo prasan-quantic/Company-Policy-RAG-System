@@ -9,6 +9,7 @@ import chromadb
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 from dotenv import load_dotenv
+import torch
 
 # Load environment variables
 load_dotenv()
@@ -35,22 +36,35 @@ class RAGPipeline:
         self.top_k = top_k
         self.llm_provider = llm_provider
         self.model_name = model_name
-
-        # Load embedding model
-        print(f"Loading embedding model: {embedding_model}")
-        self.embedding_model = SentenceTransformer(embedding_model)
+        self.embedding_model_name = embedding_model
+        self.embedding_model = None
 
         # Initialize ChromaDB with new API
         self.client = chromadb.PersistentClient(path=db_path)
 
         try:
             self.collection = self.client.get_collection(name="company_policies")
-            print(f"Loaded collection with {self.collection.count()} chunks")
+            print(f"✅ Loaded collection with {self.collection.count()} chunks")
         except Exception as e:
             raise Exception(f"Could not load collection. Run ingest.py first. Error: {e}")
 
         # Initialize LLM client
         self._init_llm_client()
+
+    def _load_embedding_model(self):
+        """Lazy load embedding model to avoid startup timeout."""
+        if self.embedding_model is None:
+            print(f"⏳ Loading embedding model: {self.embedding_model_name}")
+            # Use CPU and optimize for memory
+            device = 'cpu'
+            self.embedding_model = SentenceTransformer(
+                self.embedding_model_name,
+                device=device
+            )
+            # Set to eval mode to save memory
+            self.embedding_model.eval()
+            print(f"✅ Embedding model loaded on {device}")
+        return self.embedding_model
 
     def _init_llm_client(self):
         """Initialize LLM API client based on provider."""
@@ -84,8 +98,11 @@ class RAGPipeline:
         """
         k = top_k or self.top_k
 
+        # Lazy load embedding model on first use
+        model = self._load_embedding_model()
+
         # Embed query
-        query_embedding = self.embedding_model.encode([query])[0].tolist()
+        query_embedding = model.encode([query])[0].tolist()
 
         # Search vector database
         results = self.collection.query(
