@@ -5,6 +5,13 @@ Handles query embedding, vector search, re-ranking, and LLM generation.
 
 import os
 from typing import List, Dict, Any, Optional
+
+# Disable ChromaDB telemetry to prevent production errors
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
+# Force ONNX to use CPU only to prevent GPU warnings
+os.environ["ORT_DEVICE"] = "CPU"
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI

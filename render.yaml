@@ -4,13 +4,17 @@ services:
     env: python
     region: oregon
     plan: free
-    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python ingest.py
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt && python startup.py
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 300 --workers 1 --worker-class sync --max-requests 100 --max-requests-jitter 10
     # IMPORTANT: Render automatically sets PORT (usually 10000)
     # Do NOT manually override PORT in envVars
     envVars:
       - key: FLASK_ENV
         value: production
+      - key: ANONYMIZED_TELEMETRY
+        value: "False"
+      - key: ORT_DEVICE
+        value: CPU
       - key: OPENROUTER_API_KEY
         sync: false
       - key: GROQ_API_KEY

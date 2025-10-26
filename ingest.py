@@ -8,10 +8,18 @@ import sys
 import hashlib
 from pathlib import Path
 from typing import List, Dict, Any
+
+# Disable ChromaDB telemetry to prevent production errors
+os.environ["ANONYMIZED_TELEMETRY"] = "False"
+
+# Force ONNX to use CPU only to prevent GPU warnings
+os.environ["ORT_DEVICE"] = "CPU"
+
 import chromadb
 from sentence_transformers import SentenceTransformer
 import markdown
 from bs4 import BeautifulSoup
+from pypdf import PdfReader
 
 
 class DocumentIngestion:
@@ -274,4 +282,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
